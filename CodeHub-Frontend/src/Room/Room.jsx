@@ -7,7 +7,6 @@ import CodeEditor from './CodeEditor';
 import VideoChat from './VideoChat';
 import WhiteBoard from './WhiteBoard';
 import "../Styles/room.css";
-import { reArrangeVideos } from './VideoChat';
 
 const Room = () => {
     const { user, currRoom, socket } = useContext(DataContext);
@@ -15,17 +14,33 @@ const Room = () => {
     let roomid = currRoom ? currRoom.roomid : "";
     const [inRoomUsers, setInRoomUsers] = useState([]);
     const [userUpdated, setUserUpdated] = useState(null);
+    const [activeTab, setActiveTab] = useState('editor');
+    const [showParticipants, setShowParticipants] = useState(false);
     const requestId = useRef(null);
     const userAdded = useRef(false);
+    const isInitialized = useRef(false);
 
     useEffect(() => {
         if (user === null || currRoom === null) {
             navigate('/');
         }
+        
+        // Initialize room users if not already done
+        if (!isInitialized.current && socket.connected) {
+            socket.emit('getRoomUsers', { roomid });
+            isInitialized.current = true;
+        }
+
         socket.on('connect', () => {
             console.log('connected');
             console.log(socket.id);
+            // Get room users when connecting
+            if (!isInitialized.current) {
+                socket.emit('getRoomUsers', { roomid });
+                isInitialized.current = true;
+            }
         })
+
         socket.on("join permission", (({ user, senderID }) => {
             const permissionBlock = document.querySelector(".room .permission-block");
             permissionBlock.classList.add("active");
@@ -33,6 +48,12 @@ const Room = () => {
             permissionBlock.children[0].children[0].src = user.avatar;
             requestId.current = senderID;
         }))
+
+        // Listen for room users update
+        socket.on('roomUsers', (users) => {
+            setInRoomUsers(users.filter(u => u.id !== user.id)); // Exclude current user
+        });
+
         window.addEventListener("scroll", stopScroll)
 
         function stopScroll(e) {
@@ -40,41 +61,14 @@ const Room = () => {
         }
 
         return () => {
-            socket.off();
+            socket.off('roomUsers');
+            socket.off('join permission');
+            socket.off('userJoin');
+            socket.off('userLeft');
             window.removeEventListener("scroll", stopScroll);
         }
 
-    }, [])
-
-    useEffect(() => {
-        const resizeBtn = document.querySelector("#resize-editor");
-        resizeBtn?.addEventListener("mousedown", (e) => {
-            const startX = e.clientX;
-            const initialWidth = document.querySelector("#editor").offsetWidth;
-            document.body.addEventListener("mousemove", changeWidth);
-
-            document.body.addEventListener("mouseup", () => {
-                document.body.removeEventListener("mousemove", changeWidth);
-            })
-
-            document.body.addEventListener("mouseleave", () => {
-                document.body.removeEventListener("mousemove", changeWidth);
-            })
-
-            function changeWidth(e) {
-                const videoChat = document.querySelector(".video-chat");
-                const editor = document.querySelector("#editor");
-                const finalX = e.clientX;
-                let editorWidth = initialWidth + finalX - startX;
-                editor.style.width = editorWidth + "px";
-                let videoWidth = window.innerWidth - editorWidth - 50;
-                videoChat.style.width = videoWidth + "px";
-                reArrangeVideos();
-            }
-
-        });
-
-    }, [currRoom]);
+    }, [socket, roomid, user])
 
     useEffect(() => {
         if (socket.connected) {
@@ -98,18 +92,29 @@ const Room = () => {
         }
     }, [socket])
 
-
     useEffect(() => {
         if (!userUpdated) return;
+        
         if (userAdded.current) {
-            setInRoomUsers([...inRoomUsers, userUpdated]);
+            setInRoomUsers(prevUsers => {
+                // Prevent duplicate users
+                const userExists = prevUsers.find(u => u.id === userUpdated.id);
+                if (userExists) {
+                    return prevUsers;
+                }
+                return [...prevUsers, userUpdated];
+            });
         } else {
-            setInRoomUsers(inRoomUsers.filter((user) => user.id !== userUpdated.id));
+            setInRoomUsers(prevUsers => 
+                prevUsers.filter(u => u.id !== userUpdated.id)
+            );
         }
     }, [userUpdated])
 
     const updateRoomUsers = (users) => {
-        setInRoomUsers([...users]);
+        // Filter out current user and duplicates
+        const filteredUsers = users.filter(u => u.id !== user.id);
+        setInRoomUsers(filteredUsers);
     }
 
     async function leaveRoom() {
@@ -134,30 +139,97 @@ const Room = () => {
     if (currRoom && user) {
         return (
             <div className='room'>
-                <div className="users-joined">
-                    <button id="leave-room" className="active" onClick={leaveRoom}>
-                        <i className="fa-solid fa-right-from-bracket"></i>
-                    </button>
-                    {inRoomUsers.map((user) => (
-                        <div className="user-joined" key={user.id}>
-                            <img src={user.avatar} alt="" />
-                            <div className="name">{user.name}</div>
+                {/* Clean Header */}
+                <div className="room-header">
+                    <div className="header-left">
+                        <div className="room-info">
+                            <h1>{currRoom.name}</h1>
+                            <span className="room-code">#{currRoom.roomid}</span>
                         </div>
-                    ))}
-                </div>
-                <div className="core-components">
-                    <div className="code-editor-video-chat-parent">
-                        <CodeEditor
-                            updateRoomUsers={updateRoomUsers}
-                        />
-                        <div id="resize-editor">
-                            <div id="lines-resize"></div>
-                        </div>
-                        <VideoChat />
-
                     </div>
-                    <WhiteBoard />
+                    <div className="header-right">
+                        <div className="participants-info" onClick={() => setShowParticipants(!showParticipants)}>
+                            <i className="fa-solid fa-users"></i>
+                            <span>{inRoomUsers.length + 1} Participants</span>
+                            <i className={`fa-solid fa-chevron-${showParticipants ? 'up' : 'down'}`}></i>
+                        </div>
+                        <button className="leave-btn" onClick={leaveRoom}>
+                            <i className="fa-solid fa-sign-out-alt"></i>
+                            Leave Room
+                        </button>
+                    </div>
                 </div>
+
+                {/* Participants Dropdown */}
+                {showParticipants && (
+                    <div className="participants-dropdown">
+                        <div className="participants-list">
+                            <div className="participant current">
+                                <div className="avatar">
+                                    <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=667eea&color=fff`} alt={user.name} />
+                                    <div className="status-badge current-user"></div>
+                                </div>
+                                <div className="info">
+                                    <span className="name">{user.name}</span>
+                                    <span className="role">Host</span>
+                                </div>
+                            </div>
+                            
+                            {inRoomUsers.map((roomUser) => (
+                                <div className="participant" key={roomUser.id}>
+                                    <div className="avatar">
+                                        <img src={roomUser.avatar || `https://ui-avatars.com/api/?name=${roomUser.name}&background=667eea&color=fff`} alt={roomUser.name} />
+                                        <div className="status-badge online"></div>
+                                    </div>
+                                    <div className="info">
+                                        <span className="name">{roomUser.name}</span>
+                                        <span className="role">Member</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Main Content Area - 60-40 Split */}
+                <div className="room-content">
+                    {/* Left Side - 60% */}
+                    <div className="main-workspace">
+                        {/* Tool Toggle Buttons */}
+                        <div className="tool-toggle">
+                            <button 
+                                className={`toggle-btn ${activeTab === 'editor' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('editor')}
+                            >
+                                <i className="fa-solid fa-code"></i>
+                                Code Editor
+                            </button>
+                            <button 
+                                className={`toggle-btn ${activeTab === 'whiteboard' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('whiteboard')}
+                            >
+                                <i className="fa-solid fa-palette"></i>
+                                Whiteboard
+                            </button>
+                        </div>
+                        
+                        {/* Content Area */}
+                        <div className="workspace-content">
+                            {activeTab === 'editor' ? (
+                                <CodeEditor updateRoomUsers={updateRoomUsers} />
+                            ) : (
+                                <WhiteBoard />
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right Side - 40% */}
+                    <div className="video-sidebar">
+                        <VideoChat />
+                    </div>
+                </div>
+
+                {/* Permission Block */}
                 <div className="permission-block">
                     <div className="user-info">
                         <img src="" alt="" />
@@ -168,10 +240,12 @@ const Room = () => {
                         <button className="reject" onClick={rejectPermission}>Reject</button>
                     </div>
                 </div>
+
                 <ToastContainer autoClose={2000} />
-            </div >
+            </div>
         )
     }
     else return (null);
 }
+
 export default Room;

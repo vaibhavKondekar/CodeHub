@@ -43,7 +43,29 @@ const CodeEditor = ({
     const [input, setInput] = useState('');
     const [output, setOutput] = useState('');
     const EditorRef = useRef(null);
-    let [code, setCode] = useState(currRoom ? currRoom.code : defaultCode[language ? language : "cpp17"]);
+    let [code, setCode] = useState(currRoom ? currRoom.code : `// Welcome to CodeHub!
+// This is a collaborative coding environment
+
+function greetUser(name) {
+    console.log("Hello " + name + "!");
+    return "Welcome to our coding session!";
+}
+
+// Example function calls
+greetUser("Developer");
+greetUser("Coder");
+greetUser("Programmer");
+
+// You can write as much code as you want here
+// The editor will automatically show scrollbars when needed
+
+// More example code to demonstrate scrolling
+for (let i = 1; i <= 10; i++) {
+    console.log("Line " + i + ": This is a test line");
+}
+
+// Add your own code below this line
+console.log("Hello JavaScript Language");`);
     const [language, setLanguage] = useState(currRoom ? currRoom.language : "cpp17");
     const [running, setRunning] = useState(false);
 
@@ -253,6 +275,17 @@ const CodeEditor = ({
                         showLineNumbers: true,
                         fontFamily,
                         fontSize,
+                        scrollPastEnd: true,
+                        showPrintMargin: false,
+                        showGutter: true,
+                        highlightGutterLine: true,
+                        animatedScroll: true,
+                        scrollSpeed: 2,
+                        maxLines: Infinity,
+                        minLines: 20,
+                        wrap: false,
+                        autoScrollEditorIntoView: true,
+                        scrollPastEnd: true,
                     }}
 
                     onChange={handleChange}
@@ -260,15 +293,17 @@ const CodeEditor = ({
                     theme={theme}
                     name="ACE_EDITOR"
                     value={code}
-                    fontSize={18}
-                    height=''
-                    width=''
+                    fontSize={fontSize}
+                    height='400px'
+                    width='100%'
                     setAutoScrollEditorIntoView
                     defaultValue=''
                     ref={EditorRef}
-                    editorProps={{ $blockScrolling: true }}
-                    highlightActiveLine={false}
-                    wrapEnabled={true}
+                    editorProps={{ $blockScrolling: false }}
+                    highlightActiveLine={true}
+                    wrapEnabled={false}
+                    showPrintMargin={false}
+                    scrollPastEnd={true}
                 />
 
                 <div id='io'>
@@ -278,12 +313,24 @@ const CodeEditor = ({
                             theme={theme}
                             language={''}
                             value={input}
-                            width=""
-                            height=""
+                            width="100%"
+                            height="100%"
                             onChange={handleIOChange}
                             fontSize={fontSize}
                             highlightActiveLine={false}
                             wrapEnabled={true}
+                            setOptions={{
+                                useWorker: false,
+                                showLineNumbers: false,
+                                showGutter: false,
+                                showPrintMargin: false,
+                                highlightActiveLine: false,
+                                enableBasicAutocompletion: false,
+                                enableLiveAutocompletion: false,
+                                enableSnippets: false,
+                                showLineNumbers: false,
+                                fontSize: fontSize,
+                            }}
                         />
                     </div>
                     <div className="output">
@@ -292,11 +339,23 @@ const CodeEditor = ({
                             theme={theme}
                             language={''}
                             value={output}
-                            width=""
-                            height=""
+                            width="100%"
+                            height="100%"
                             readOnly={true}
                             fontSize={fontSize}
                             highlightActiveLine={false}
+                            setOptions={{
+                                useWorker: false,
+                                showLineNumbers: false,
+                                showGutter: false,
+                                showPrintMargin: false,
+                                highlightActiveLine: false,
+                                enableBasicAutocompletion: false,
+                                enableLiveAutocompletion: false,
+                                enableSnippets: false,
+                                showLineNumbers: false,
+                                fontSize: fontSize,
+                            }}
                         />
                     </div>
                 </div>

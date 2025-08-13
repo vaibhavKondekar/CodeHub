@@ -59,66 +59,85 @@ const Settings = ({
 }) => {
 
     return (
-        <div className="editor-settings" >
-            <div>
-                <h3>{roomName} - {roomid}</h3>
-                <Select
-                    labelId="language-selector-label"
-                    id="language-selector"
-                    value={language}
-                    onChange={(e) => handleLangChange(e.target.value)}
-                >
-                    {languageOptions.map((option) => (
-                        <MenuItem key={option.value} value={option.value} >
-                            {option.label}
-                        </MenuItem>
-                    ))}
-                </Select>
-                <Select
-                    labelId="theme-selector-label"
-                    id="theme-selector"
-                    value={theme}
-                    onChange={(e) => setTheme(e.target.value)}
-                >
-                    {themeOptions.map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                            {option.label}
-                        </MenuItem>
-                    ))}
-                </Select>
-                <Select
-                    labelId="font-family-selector-label"
-                    id="font-family-selector"
-                    value={fontFamily}
-                    onChange={(e) => setFontFamily(e.target.value)}
-                >
-                    {fontFamilyOptions.map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                            {option.label}
-                        </MenuItem>
-                    ))}
-                </Select>
-                <Select
-                    labelId="font-size-selector-label"
-                    id="font-size-selector"
-                    value={fontSize}
-                    onChange={(e) => setFontSize(e.target.value)}
-                >
-                    {fontSizeOptions.map((option) => (
-                        <MenuItem key={option} value={option}>
-                            {option}
-                        </MenuItem>
-                    ))}
-                </Select>
-                <IconButton
-                    {...{ disabled: running }}
-                    style={{ marginL: '10px', maxHeight: 40, }} onClick={run}>
-                    <PlayArrowIcon />
-                </IconButton>
+        <div className="editor-settings">
+            <div className="settings-controls">
+                <div className="control-group">
+                    <Select
+                        className="control-select"
+                        value={language}
+                        onChange={(e) => handleLangChange(e.target.value)}
+                        displayEmpty
+                        size="small"
+                    >
+                        {languageOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                                {option.label}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </div>
+                
+                <div className="control-group">
+                    <Select
+                        className="control-select"
+                        value={theme}
+                        onChange={(e) => setTheme(e.target.value)}
+                        displayEmpty
+                        size="small"
+                    >
+                        {themeOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                                {option.label}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </div>
+                
+                <div className="control-group">
+                    <Select
+                        className="control-select"
+                        value={fontFamily}
+                        onChange={(e) => setFontFamily(e.target.value)}
+                        displayEmpty
+                        size="small"
+                    >
+                        {fontFamilyOptions.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                                {option.label}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </div>
+                
+                <div className="control-group">
+                    <Select
+                        className="control-select"
+                        value={fontSize}
+                        onChange={(e) => setFontSize(e.target.value)}
+                        displayEmpty
+                        size="small"
+                    >
+                        {fontSizeOptions.map((option) => (
+                            <MenuItem key={option} value={option}>
+                                {option}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </div>
+                
+                <div className="control-group">
+                    <IconButton
+                        className="run-button"
+                        disabled={running}
+                        onClick={run}
+                        size="large"
+                    >
+                        <PlayArrowIcon />
+                    </IconButton>
+                </div>
             </div>
-        </div >
+        </div>
     )
-
 }
 
 export default Settings;
