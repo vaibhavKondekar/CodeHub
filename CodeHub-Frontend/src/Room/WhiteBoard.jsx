@@ -9,10 +9,43 @@ const WhiteBoard = () => {
 
     useEffect(() => {
         const root = document.querySelector("#root");
-        const canvas = document.querySelector(' #white-board canvas');
+        const canvas = document.querySelector('#white-board canvas');
+        
+        if (!canvas) {
+            console.warn("Canvas element not found");
+            return;
+        }
+        
+        // Force set the background color
+        const whiteBoard = document.querySelector("#white-board");
+        if (whiteBoard) {
+            if (root.classList.contains("dark")) {
+                whiteBoard.style.backgroundColor = "#1a202c";
+                if (canvas) canvas.style.backgroundColor = "#1a202c";
+            } else {
+                whiteBoard.style.backgroundColor = "#ffffff";
+                if (canvas) canvas.style.backgroundColor = "#ffffff";
+            }
+        }
+        
         const ctx = canvas.getContext('2d');
-        const width = canvas.width = window.innerWidth;
-        const height = canvas.height = window.innerHeight - 80 - 50;
+        if (!ctx) {
+            console.warn("Canvas context not available");
+            return;
+        }
+        
+        // Configure canvas context for better drawing
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        // Get the container dimensions instead of full window
+        const container = document.querySelector('.whiteboard-container');
+        const containerRect = container ? container.getBoundingClientRect() : null;
+        const width = canvas.width = containerRect ? containerRect.width : 800;
+        const height = canvas.height = containerRect ? containerRect.height : 600;
+        
         let time = performance.now();
 
         let interval = 0;
@@ -21,53 +54,92 @@ const WhiteBoard = () => {
         const rectangle = [0, 0, 0, 0];
         const circle = [0, 0, 0, 0, 0];
 
+        // Function to resize canvas to fit container
+        const resizeCanvas = () => {
+            const container = document.querySelector('.whiteboard-container');
+            if (container && canvas) {
+                const containerRect = container.getBoundingClientRect();
+                canvas.width = containerRect.width;
+                canvas.height = containerRect.height;
+                
+                // Reconfigure context after resize
+                if (ctx) {
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.strokeStyle = data.color;
+                    ctx.lineWidth = data.thickness;
+                }
+            }
+        };
 
-        const whiteBoard = document.querySelector("#white-board");
+        // Add resize listener
+        window.addEventListener('resize', resizeCanvas);
+
+
         const data = { color: root.classList.contains("dark") ? "white" : "black", thickness: 1, prevX: 0, prevY: 0, x: 0, y: 0 };
+        
+        // Set initial context properties
+        if (ctx) {
+            ctx.strokeStyle = data.color;
+            ctx.lineWidth = data.thickness;
+        }
+        
         const colors = document.querySelectorAll(".colors .color");
         const sizes = document.querySelectorAll(".sizes .size");
         const eraser = document.querySelector("#eraser");
         const shapes = document.querySelectorAll(".shapes .shape");
-        // click events
-
-        colors.forEach((color, index) => {
-            color.addEventListener("click", () => {
-                clearInterval(colorInterval);
-                colors.forEach(color => color.classList.remove("active"));
-                color.classList.add("active");
-                sizes[data.thickness - 1].classList.add("active");
-                eraser.classList.remove("active");
-                if (index == colors.length - 1) {
-                    changeContinuous();
-                } else {
-                    data.color = getComputedStyle(color).getPropertyValue("--color");
-                    if (data.color == "black" && root.classList.contains("dark")) { data.color = "white"; }
-                    ctx.strokeStyle = data.color;
-                    ctx.lineWidth = data.thickness;
-                }
-                changeColorShape();
-            })
-        })
-
-        sizes.forEach(size => {
-            size.addEventListener("click", () => {
-                sizes.forEach(size => size.classList.remove("active"));
-                size.classList.add("active");
-                eraser.classList.remove("active");
-                if (data.color == "white") {
-                    colors[0].classList.add("active");
-                } else {
-                    colors.forEach(color => {
-                        if (getComputedStyle(color).getPropertyValue("--color") == data.color) {
-                            color.classList.add("active");
+        
+        // Only add event listeners if elements exist
+        if (colors.length > 0) {
+            colors.forEach((color, index) => {
+                color.addEventListener("click", () => {
+                    clearInterval(colorInterval);
+                    colors.forEach(color => color.classList.remove("active"));
+                    color.classList.add("active");
+                    if (sizes[data.thickness - 1]) {
+                        sizes[data.thickness - 1].classList.add("active");
+                    }
+                    if (eraser) eraser.classList.remove("active");
+                    if (index == colors.length - 1) {
+                        changeContinuous();
+                    } else {
+                        data.color = getComputedStyle(color).getPropertyValue("--color");
+                        if (data.color == "black" && root.classList.contains("dark")) { data.color = "white"; }
+                        if (ctx) {
+                            ctx.strokeStyle = data.color;
+                            ctx.lineWidth = data.thickness;
                         }
-                    });
-                }
-                data.thickness = getComputedStyle(size).getPropertyValue("--width");
-                ctx.lineWidth = data.thickness;
-                ctx.strokeStyle = data.color;
+                        changeColorShape();
+                    }
+                })
             })
-        })
+        }
+
+        if (sizes.length > 0) {
+            sizes.forEach(size => {
+                size.addEventListener("click", () => {
+                    sizes.forEach(size => size.classList.remove("active"));
+                    size.classList.add("active");
+                    if (eraser) eraser.classList.remove("active");
+                    if (data.color == "white") {
+                        if (colors[0]) colors[0].classList.add("active");
+                    } else {
+                        colors.forEach(color => {
+                            if (getComputedStyle(color).getPropertyValue("--color") == data.color) {
+                                color.classList.add("active");
+                            }
+                        });
+                    }
+                    data.thickness = getComputedStyle(size).getPropertyValue("--width");
+                    if (ctx) {
+                        ctx.lineWidth = data.thickness;
+                        ctx.strokeStyle = data.color;
+                    }
+                })
+            })
+        }
 
         function changeContinuous() {
             colorInterval = setInterval(() => {
@@ -77,67 +149,63 @@ const WhiteBoard = () => {
         }
 
         const clearScreenBtn = document.querySelector("#clearScreen");
-        clearScreenBtn.addEventListener("click", () => {
-            ctx.clearRect(0, 0, width, height);
-        });
+        if (clearScreenBtn && ctx) {
+            clearScreenBtn.addEventListener("click", () => {
+                ctx.clearRect(0, 0, width, height);
+            });
+        }
 
-        eraser.addEventListener("click", () => {
-            const newColor = document.querySelector(".room").style.getPropertyValue("--primary-background-color");
-            ctx.strokeStyle = newColor
-            ctx.lineWidth = 20;
-            eraser.classList.add("active");
-            sizes.forEach(size => size.classList.remove("active"));
-            colors.forEach(color => color.classList.remove("active"));
-            shapes.forEach(shape => shape.classList.remove("active"));
-            pen.classList.remove("active")
-            clearInterval(colorInterval);
-        })
+        if (eraser && ctx) {
+            eraser.addEventListener("click", () => {
+                const newColor = document.querySelector(".room")?.style.getPropertyValue("--primary-background-color") || "#ffffff";
+                ctx.strokeStyle = newColor;
+                ctx.lineWidth = 20;
+                eraser.classList.add("active");
+                sizes.forEach(size => size.classList.remove("active"));
+                colors.forEach(color => color.classList.remove("active"));
+                shapes.forEach(shape => shape.classList.remove("active"));
+                if (pen) pen.classList.remove("active");
+                clearInterval(colorInterval);
+            })
+        }
 
         const pen = document.querySelector("#pen");
 
-        pen.addEventListener("click", () => {
-            ctx.lineWidth = data.thickness;
-            ctx.strokeStyle = data.color;
-            shapes.forEach(shape => shape.classList.remove("active"));
-            eraser.classList.remove("active");
-            clearInterval(colorInterval);
-            pen.classList.add("active")
-            changeColorShape();
-            sizes[data.thickness - 1].classList.add("active");
-            if (data.color == "white") {
-                colors[0].classList.add("active");
-            } else {
-                colors.forEach(color => {
-                    if (getComputedStyle(color).getPropertyValue("--color") == data.color) {
-                        color.classList.add("active");
-                    }
-                });
-            }
-
-        })
-
-        shapes.forEach(shape => {
-            shape.addEventListener("click", () => {
-                shapes.forEach(shape => shape.classList.remove("active"));
-                pen.classList.remove("active");
-                shape.classList.add("active");
-                eraser.classList.remove("active");
+        if (pen && ctx) {
+            pen.addEventListener("click", () => {
                 ctx.lineWidth = data.thickness;
                 ctx.strokeStyle = data.color;
-                sizes[data.thickness - 1].classList.add("active");
-                if (data.color == "white") {
-                    colors[0].classList.add("active");
-                } else {
-                    colors.forEach(color => {
-                        if (getComputedStyle(color).getPropertyValue("--color") == data.color) {
-                            color.classList.add("active");
-                        }
-                    });
-                }
+                pen.classList.add("active");
+                eraser.classList.remove("active");
+                sizes.forEach(size => size.classList.remove("active"));
+                colors.forEach(color => color.classList.remove("active"));
+                shapes.forEach(shape => shape.classList.remove("active"));
                 clearInterval(colorInterval);
-                changeColorShape();
             })
-        })
+        }
+
+        if (shapes.length > 0) {
+            shapes.forEach(shape => {
+                shape.addEventListener("click", () => {
+                    shapes.forEach(shape => shape.classList.remove("active"));
+                    shape.classList.add("active");
+                    eraser.classList.remove("active");
+                    if (pen) pen.classList.remove("active");
+                    clearInterval(colorInterval);
+                })
+            })
+        }
+
+        // Function to get correct canvas coordinates
+        function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
 
         function changeColorShape() {
             const shapes = document.querySelectorAll(".shapes .shape, .shapes #pen");
@@ -156,24 +224,27 @@ const WhiteBoard = () => {
             if (performance.now() - time < 10) return;
             data.prevX = data.x;
             data.prevY = data.y;
-            data.x = e.offsetX;
-            data.y = e.offsetY;
+            const coords = getCanvasCoordinates(e);
+            data.x = coords.x;
+            data.y = coords.y;
             time = performance.now();
         }
 
         function pressed(e) {
             const shape = Array.from(shapes).find(shape => shape.classList.contains("active"));
+            const coords = getCanvasCoordinates(e);
 
             if (shape) {
-                triangle[0].x = e.offsetX;
-                triangle[1].y = e.offsetY;
-                rectangle[0] = e.offsetX;
-                rectangle[1] = e.offsetY;
-                circle[0] = e.offsetX;
-                circle[1] = e.offsetY;
+                triangle[0].x = coords.x;
+                triangle[1].y = coords.y;
+                rectangle[0] = coords.x;
+                rectangle[1] = coords.y;
+                circle[0] = coords.x;
+                circle[1] = coords.y;
 
                 canvas.addEventListener("mouseup", (e2) => {
-                    drawShape(e2, shape);
+                    const endCoords = getCanvasCoordinates(e2);
+                    drawShape(endCoords, shape);
                     if (shape.id == "triangle") {
                         drawTriangle()
                     } else if (shape.id == "rectangle") {
@@ -184,8 +255,8 @@ const WhiteBoard = () => {
                 }, { once: true })
 
             } else {
-                data.prevX = data.x = e.offsetX;
-                data.prevY = data.y = e.offsetY;
+                data.prevX = data.x = coords.x;
+                data.prevY = data.y = coords.y;
                 canvas.addEventListener('mousemove', dragged);
                 canvas.addEventListener('mouseup', lifted);
                 interval = setInterval(() => drawLine(), 10);
@@ -207,23 +278,23 @@ const WhiteBoard = () => {
             socket.emit("drawData", { roomId: roomId.current, prevX: data.prevX, prevY: data.prevY, x: data.x, y: data.y, color: data.color, thickness: data.thickness, shape: eraser.classList.contains("active") ? "eraser" : "pen" });
         }
 
-        function drawShape(e, shape) {
+        function drawShape(coords, shape) {
             if (shape.id == "triangle") {
-                triangle[0].y = e.offsetY;
-                triangle[2].x = e.offsetX;
-                triangle[2].y = e.offsetY;
+                triangle[0].y = coords.y;
+                triangle[2].x = coords.x;
+                triangle[2].y = coords.y;
                 triangle[1].x = (triangle[0].x + triangle[2].x) / 2;
             }
 
             if (shape.id == "rectangle") {
-                rectangle[2] = e.offsetX;
-                rectangle[3] = e.offsetY;
+                rectangle[2] = coords.x;
+                rectangle[3] = coords.y;
             }
 
             if (shape.id == "circle") {
-                circle[2] = (e.offsetX - circle[0]) / 2 + circle[0];
-                circle[3] = (e.offsetY - circle[1]) / 2 + circle[1];
-                circle[4] = Math.sqrt(Math.pow(e.offsetX - circle[2], 2) + Math.pow(e.offsetY - circle[3], 2));
+                circle[2] = (coords.x - circle[0]) / 2 + circle[0];
+                circle[3] = (coords.y - circle[1]) / 2 + circle[1];
+                circle[4] = Math.sqrt(Math.pow(coords.x - circle[2], 2) + Math.pow(coords.y - circle[3], 2));
             }
         }
 
@@ -292,21 +363,29 @@ const WhiteBoard = () => {
         });
 
         const whiteBoardBtn = document.querySelector(".change-component-btn .change-btn");
-        whiteBoardBtn.addEventListener("click", () => {
-            const coreComponentsParent = document.querySelector(".core-components");
-            let topPosition = !isWhiteBoardOpen.current ? coreComponentsParent.scrollHeight : 0;
-            coreComponentsParent.scrollTo({ top: topPosition, behavior: "smooth" });
-            isWhiteBoardOpen.current = !isWhiteBoardOpen.current;
-            whiteBoardBtn.classList.toggle("whiteboard-open")
-        })
+        if (whiteBoardBtn) {
+            whiteBoardBtn.addEventListener("click", () => {
+                const coreComponentsParent = document.querySelector(".core-components");
+                if (coreComponentsParent) {
+                    let topPosition = !isWhiteBoardOpen.current ? coreComponentsParent.scrollHeight : 0;
+                    coreComponentsParent.scrollTo({ top: topPosition, behavior: "smooth" });
+                    isWhiteBoardOpen.current = !isWhiteBoardOpen.current;
+                    whiteBoardBtn.classList.toggle("whiteboard-open")
+                }
+            })
+        }
+
+        // Cleanup function
+        return () => {
+            window.removeEventListener('resize', resizeCanvas);
+            // Remove other event listeners if they exist
+            if (whiteBoardBtn) {
+                whiteBoardBtn.removeEventListener("click", () => {});
+            }
+        };
     }, []);
     return (
-        <div id="white-board" >
-            <div className="change-component-btn">
-                <button className="change-btn" >
-                    <p>WhiteBoard</p>
-                </button>
-            </div>
+        <div id="white-board" className="whiteboard-wrapper">
             <div className="toolbar">
                 <div className="sizes">
                     <div className="size active" style={{ "--width": 1 }}></div>
@@ -351,7 +430,7 @@ const WhiteBoard = () => {
                 </div>
 
             </div>
-            <canvas></canvas>
+            <canvas style={{ width: '100%', height: '100%' }}></canvas>
         </div >
     )
 };

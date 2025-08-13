@@ -1,4 +1,4 @@
-const { createRoom, addRoomUser, removeRoomUser, getRoom, updateRoomCode, updateCodeEditorCredentials, deleteUser, updateUserSocketMap, userSocketMap } = require('../Room/socketRoom');
+const { createRoom, addRoomUser, removeRoomUser, getRoom, updateRoomCode, updateCodeEditorCredentials, deleteUser, updateUserSocketMap, userSocketMap, listAllRooms } = require('../Room/socketRoom');
 
 function manageRoom(socket, io) {
 
@@ -6,19 +6,71 @@ function manageRoom(socket, io) {
 
     socket.on('join', async ({ roomName = 'Room X', roomid, name, code = '', language = 'javascript', input = '', output = '', avatar = '' }) => {
         try {
+            console.log(`Join request: ${name} (${socketId}) joining room ${roomid}`);
             if (!name) {
                 throw new Error('Invalid data');
             }
+            
+            // Check if user is already in the room
+            const existingRoom = getRoom(roomid);
+            if (existingRoom) {
+                console.log(`Room ${roomid} exists with ${existingRoom.users.length} users:`, existingRoom.users.map(u => `${u.name}(${u.id})`));
+                const userExists = existingRoom.users.find(user => user.id === socketId);
+                if (userExists) {
+                    console.log(`User ${name} (${socketId}) already in room ${roomid}, just joining socket room`);
+                    // User already in room, just join socket room
+                    await socket.join(roomid);
+                    // socket.emit('join', { msg: `Welcome back to ${roomName}`, room: existingRoom, socketId });
+                    socket.emit('join', { msg: ``, room: existingRoom, socketId });
+                    return;
+                }
+            } else {
+                console.log(`Room ${roomid} does not exist, will create new`);
+            }
+            
+            console.log(`Creating/updating room ${roomid} for user ${name}`);
             createRoom(roomid, roomName, code, language, input, output);
-
             addRoomUser(roomid, { id: socketId, name, avatar });
 
             await socket.join(roomid);
+            console.log(`User ${name} (${socketId}) successfully joined room ${roomid}`);
+            
+            const finalRoom = getRoom(roomid);
+            console.log(`Final room state: ${finalRoom.users.length} users:`, finalRoom.users.map(u => `${u.name}(${u.id})`));
 
-            socket.emit('join', { msg: `Welcome to ${roomName}`, room: getRoom(roomid), socketId });
-            socket.to(roomid).emit('userJoin', { msg: `New user joined ${name}`, newUser: { id: socketId, name, avatar } });
+            // socket.emit('join', { msg: `Welcome to ${roomName}`, room: finalRoom, socketId });
+            socket.emit('join', { msg: ``, room: finalRoom, socketId });
+            // socket.to(roomid).emit('userJoin', { msg: `New user joined ${name}`, newUser: { id: socketId, name, avatar } });
+            socket.to(roomid).emit('userJoin', { msg: ``, newUser: { id: socketId, name, avatar } });
+            
+            // CRITICAL FIX: Send room users to the joining user immediately
+            console.log(`Sending room users to newly joined user ${name}`);
+            socket.emit('roomUsers', finalRoom.users);
+            
+            // Also notify all other users in the room about the updated user list
+            socket.to(roomid).emit('roomUsers', finalRoom.users);
         } catch (err) {
             console.log(err);
+            socket.emit('error', { error: err });
+        }
+    });
+
+    // Add the missing getRoomUsers handler
+    socket.on('getRoomUsers', ({ roomid }) => {
+        try {
+            console.log(`getRoomUsers requested for room ${roomid} by socket ${socketId}`);
+            const room = getRoom(roomid);
+            if (room) {
+                console.log(`Room ${roomid} found with ${room.users.length} users:`, room.users.map(u => `${u.name}(${u.id})`));
+                console.log(`Sending users to socket ${socketId}:`, room.users);
+                // Send room users to the requesting socket only
+                socket.emit('roomUsers', room.users);
+            } else {
+                console.log(`Room ${roomid} not found, sending empty array`);
+                socket.emit('roomUsers', []);
+            }
+        } catch (err) {
+            console.log('Error in getRoomUsers:', err);
             socket.emit('error', { error: err });
         }
     });
@@ -129,6 +181,20 @@ function manageRoom(socket, io) {
 
     socket.on("reject permission", ({ senderID }) => {
         io.to(senderID).emit("permission rejected")
+    })
+
+    // Debug event handler
+    socket.on("debug", ({ roomid }) => {
+        console.log(`Debug request for room ${roomid}`);
+        listAllRooms();
+        const room = getRoom(roomid);
+        if (room) {
+            console.log(`Room ${roomid} details:`, room);
+            socket.emit('debug', { room, allRooms: Object.keys(rooms) });
+        } else {
+            console.log(`Room ${roomid} not found`);
+            socket.emit('debug', { room: null, allRooms: Object.keys(rooms) });
+        }
     })
 
 }

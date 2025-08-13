@@ -7,10 +7,15 @@
 #white-board {
   width: calc(100vw - 50px);
   height: 100vh;
-  background-color: var(--primary-background-color);
+  background-color: #ffffff;
   overflow: hidden;
   transition: all 0.5s ease-in-out;
   cursor: crosshair;
+
+  /* Dark theme background */
+  .dark & {
+    background-color: #1a202c;
+  }
 
   .toolbar {
     width: 100vw;
@@ -182,10 +187,15 @@
 #white-board {
   width: calc(100vw - 50px);
   height: 100vh;
-  background-color: var(--primary-background-color);
+  background-color: #ffffff;
   overflow: hidden;
   transition: all 0.5s ease-in-out;
   cursor: crosshair;
+
+  /* Dark theme background */
+  .dark & {
+    background-color: #1a202c;
+  }
 
   .toolbar {
     width: 100vw;

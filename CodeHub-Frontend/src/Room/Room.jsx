@@ -19,97 +19,194 @@ const Room = () => {
     const requestId = useRef(null);
     const userAdded = useRef(false);
     const isInitialized = useRef(false);
+    const socketInitialized = useRef(false);
 
+    // Initialize socket events only once
+    useEffect(() => {
+        if (!socket || socketInitialized.current) {
+            console.log('Socket not available or already initialized');
+            return;
+        }
+
+        console.log('Initializing socket events for room:', roomid);
+        console.log('Socket connection state:', socket.connected);
+        console.log('Socket ID:', socket.id);
+
+        const handleConnect = () => {
+            console.log('Socket connected, ID:', socket.id);
+            // Get room users when connecting
+            if (!isInitialized.current) {
+                console.log('Fetching initial room users');
+                socket.emit('getRoomUsers', { roomid });
+                isInitialized.current = true;
+            }
+        };
+
+        const handleJoinPermission = ({ user, senderID }) => {
+            console.log('Join permission request from:', user.name);
+            const permissionBlock = document.querySelector(".room .permission-block");
+            if (permissionBlock) {
+                permissionBlock.classList.add("active");
+                permissionBlock.children[0].children[1].innerHTML = `<span>${user.name}</span>  wants to join the room`;
+                permissionBlock.children[0].children[0].src = user.avatar;
+                requestId.current = senderID;
+            }
+        };
+
+        const handleRoomUsers = (users) => {
+            console.log('🎉 RECEIVED ROOM USERS EVENT!');
+            console.log('Users received:', users);
+            console.log('Current user ID:', user.id);
+            // Filter out current user and ensure no duplicates
+            const filteredUsers = users.filter(u => u.id !== user.id);
+            console.log('Filtered users (excluding current):', filteredUsers);
+            console.log('Setting inRoomUsers to:', filteredUsers);
+            setInRoomUsers(filteredUsers);
+        };
+
+        const handleUserJoin = ({ msg, newUser }) => {
+            console.log('User joined event:', newUser);
+            console.log('Current inRoomUsers before update:', inRoomUsers);
+            setUserUpdated(newUser);
+            userAdded.current = true;
+            // toast.success(msg, {
+            //     position: toast.POSITION.TOP_RIGHT
+            // });
+        };
+
+        const handleUserLeft = ({ msg, userId }) => {
+            console.log('User left event:', userId);
+            console.log('Current inRoomUsers before update:', inRoomUsers);
+            setUserUpdated({ id: userId });
+            userAdded.current = false;
+            // toast.error(msg, {
+            //     position: toast.POSITION.TOP_RIGHT
+            // });
+        };
+
+        const handleError = ({ error }) => {
+            console.log('Socket error:', error);
+        };
+
+        const handleDebug = (data) => {
+            console.log('🔍 DEBUG RESPONSE:', data);
+            if (data.room) {
+                console.log('Room found:', data.room);
+                console.log('Room users:', data.room.users);
+            } else {
+                console.log('Room not found');
+            }
+            console.log('All rooms:', data.allRooms);
+        };
+
+        // Register all socket events
+        socket.on('connect', handleConnect);
+        socket.on('join permission', handleJoinPermission);
+        socket.on('roomUsers', handleRoomUsers);
+        socket.on('userJoin', handleUserJoin);
+        socket.on('userLeft', handleUserLeft);
+        socket.on('error', handleError);
+        socket.on('debug', handleDebug);
+
+        // Mark as initialized
+        socketInitialized.current = true;
+        console.log('Socket events initialized successfully');
+
+        // CRITICAL FIX: Join the socket room first, then get users
+        if (socket.connected && !isInitialized.current) {
+            console.log('Socket already connected, joining room first...');
+            // Join the socket room first
+            socket.emit('join', {
+                roomName: currRoom.name,
+                roomid: roomid,
+                name: user.name,
+                avatar: user.avatar || ''
+            });
+            isInitialized.current = true;
+        }
+
+        // Add a timeout to check if we received room users
+        const timeoutId = setTimeout(() => {
+            if (inRoomUsers.length === 0) {
+                console.log('⚠️ No room users received after 3 seconds, retrying...');
+                console.log('Socket connected:', socket.connected);
+                console.log('Socket ID:', socket.id);
+                // Try to join the room again if no users received
+                socket.emit('join', {
+                    roomName: currRoom.name,
+                    roomid: roomid,
+                    name: user.name,
+                    avatar: user.avatar || ''
+                });
+            }
+        }, 3000);
+
+        // Cleanup function
+        return () => {
+            console.log('Cleaning up socket events');
+            clearTimeout(timeoutId);
+            socket.off('connect', handleConnect);
+            socket.off('join permission', handleJoinPermission);
+            socket.off('roomUsers', handleRoomUsers);
+            socket.off('userJoin', handleUserJoin);
+            socket.off('userLeft', handleUserLeft);
+            socket.off('error', handleError);
+            socketInitialized.current = false;
+            isInitialized.current = false;
+        };
+    }, [socket, roomid, user, currRoom]);
+
+    // Handle user updates separately
+    useEffect(() => {
+        if (!userUpdated) return;
+        
+        console.log('Processing user update:', userUpdated, 'userAdded:', userAdded.current);
+        
+        if (userAdded.current) {
+            setInRoomUsers(prevUsers => {
+                console.log('Adding user, previous users:', prevUsers);
+                // Prevent duplicate users
+                const userExists = prevUsers.find(u => u.id === userUpdated.id);
+                if (userExists) {
+                    console.log('User already exists, not adding duplicate');
+                    return prevUsers;
+                }
+                const newUsers = [...prevUsers, userUpdated];
+                console.log('New users list:', newUsers);
+                return newUsers;
+            });
+        } else {
+            setInRoomUsers(prevUsers => {
+                console.log('Removing user, previous users:', prevUsers);
+                const newUsers = prevUsers.filter(u => u.id !== userUpdated.id);
+                console.log('Users after removal:', newUsers);
+                return newUsers;
+            });
+        }
+        
+        // Reset userUpdated to prevent unnecessary re-renders
+        setUserUpdated(null);
+    }, [userUpdated]);
+
+    // Navigation effect
     useEffect(() => {
         if (user === null || currRoom === null) {
             navigate('/');
         }
-        
-        // Initialize room users if not already done
-        if (!isInitialized.current && socket.connected) {
-            socket.emit('getRoomUsers', { roomid });
-            isInitialized.current = true;
-        }
+    }, [user, currRoom, navigate]);
 
-        socket.on('connect', () => {
-            console.log('connected');
-            console.log(socket.id);
-            // Get room users when connecting
-            if (!isInitialized.current) {
-                socket.emit('getRoomUsers', { roomid });
-                isInitialized.current = true;
-            }
-        })
-
-        socket.on("join permission", (({ user, senderID }) => {
-            const permissionBlock = document.querySelector(".room .permission-block");
-            permissionBlock.classList.add("active");
-            permissionBlock.children[0].children[1].innerHTML = `<span>${user.name}</span>  wants to join the room`;
-            permissionBlock.children[0].children[0].src = user.avatar;
-            requestId.current = senderID;
-        }))
-
-        // Listen for room users update
-        socket.on('roomUsers', (users) => {
-            setInRoomUsers(users.filter(u => u.id !== user.id)); // Exclude current user
-        });
-
-        window.addEventListener("scroll", stopScroll)
-
-        function stopScroll(e) {
+    // Scroll prevention
+    useEffect(() => {
+        const stopScroll = (e) => {
             e.preventDefault();
-        }
+        };
+
+        window.addEventListener("scroll", stopScroll);
 
         return () => {
-            socket.off('roomUsers');
-            socket.off('join permission');
-            socket.off('userJoin');
-            socket.off('userLeft');
             window.removeEventListener("scroll", stopScroll);
-        }
-
-    }, [socket, roomid, user])
-
-    useEffect(() => {
-        if (socket.connected) {
-            socket.on('userJoin', ({ msg, newUser }) => {
-                setUserUpdated(newUser);
-                userAdded.current = true;
-                toast.success(msg, {
-                    position: toast.POSITION.TOP_RIGHT
-                });
-            })
-            socket.on('userLeft', ({ msg, userId }) => {
-                setUserUpdated({ id: userId });
-                userAdded.current = false;
-                toast.error(msg, {
-                    position: toast.POSITION.TOP_RIGHT
-                });
-            })
-            socket.on('error', ({ error }) => {
-                console.log('error from socket call', error)
-            })
-        }
-    }, [socket])
-
-    useEffect(() => {
-        if (!userUpdated) return;
-        
-        if (userAdded.current) {
-            setInRoomUsers(prevUsers => {
-                // Prevent duplicate users
-                const userExists = prevUsers.find(u => u.id === userUpdated.id);
-                if (userExists) {
-                    return prevUsers;
-                }
-                return [...prevUsers, userUpdated];
-            });
-        } else {
-            setInRoomUsers(prevUsers => 
-                prevUsers.filter(u => u.id !== userUpdated.id)
-            );
-        }
-    }, [userUpdated])
+        };
+    }, []);
 
     const updateRoomUsers = (users) => {
         // Filter out current user and duplicates
@@ -126,14 +223,18 @@ const Room = () => {
 
     function acceptPermission() {
         const permissionBlock = document.querySelector(".room .permission-block");
-        permissionBlock.classList.remove("active");
-        socket.emit("accept permission", { senderID: requestId.current });
+        if (permissionBlock) {
+            permissionBlock.classList.remove("active");
+            socket.emit("accept permission", { senderID: requestId.current });
+        }
     }
 
     function rejectPermission() {
         const permissionBlock = document.querySelector(".room .permission-block");
-        permissionBlock.classList.remove("active");
-        socket.emit("reject permission", { senderID: requestId.current });
+        if (permissionBlock) {
+            permissionBlock.classList.remove("active");
+            socket.emit("reject permission", { senderID: requestId.current });
+        }
     }
 
     if (currRoom && user) {
@@ -157,6 +258,7 @@ const Room = () => {
                             <i className="fa-solid fa-sign-out-alt"></i>
                             Leave Room
                         </button>
+
                     </div>
                 </div>
 

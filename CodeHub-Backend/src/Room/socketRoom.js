@@ -5,6 +5,7 @@ const userSocketMap = new Map();
 
 
 function createRoom(roomid, roomName, code, language, input, output) {
+    console.log(`Creating room: ${roomid} with name: ${roomName}`);
     if (!rooms[roomid]) {
         rooms[roomid] = {
             roomName,
@@ -15,6 +16,10 @@ function createRoom(roomid, roomName, code, language, input, output) {
             input,
             output
         }
+        console.log(`Room ${roomid} created successfully`);
+        console.log(`Current rooms:`, Object.keys(rooms));
+    } else {
+        console.log(`Room ${roomid} already exists`);
     }
 }
 
@@ -27,7 +32,17 @@ function deleteRoom(roomid) {
 
 function addRoomUser(roomid, user) {
     if (rooms[roomid]) {
-        rooms[roomid].users.push(user);
+        // Check if user already exists in the room
+        const userExists = rooms[roomid].users.find(existingUser => existingUser.id === user.id);
+        if (!userExists) {
+            console.log(`Adding user ${user.name} (${user.id}) to room ${roomid}`);
+            rooms[roomid].users.push(user);
+            console.log(`Room ${roomid} now has ${rooms[roomid].users.length} users:`, rooms[roomid].users.map(u => u.name));
+        } else {
+            console.log(`User ${user.name} (${user.id}) already exists in room ${roomid}`);
+        }
+    } else {
+        console.log(`Room ${roomid} does not exist, cannot add user`);
     }
 }
 
@@ -95,6 +110,17 @@ function updateUserSocketMap(userId, socketId) {
     userSocketMap.set(userId, socketId);
 }
 
+function listAllRooms() {
+    console.log('=== ALL ROOMS ===');
+    for (let roomid in rooms) {
+        console.log(`Room: ${roomid} - ${rooms[roomid].roomName} - Users: ${rooms[roomid].users.length}`);
+        rooms[roomid].users.forEach(user => {
+            console.log(`  - ${user.name} (${user.id})`);
+        });
+    }
+    console.log('================');
+}
+
 module.exports = {
     createRoom,
     addRoomUser,
@@ -104,5 +130,6 @@ module.exports = {
     updateCodeEditorCredentials,
     deleteUser,
     updateUserSocketMap,
-    userSocketMap
+    userSocketMap,
+    listAllRooms
 };

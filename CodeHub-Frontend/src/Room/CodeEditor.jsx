@@ -32,7 +32,8 @@ const CodeEditor = ({
     updateRoomUsers,
 }) => {
     const dmp = new diff_match_patch();
-    const [theme, setTheme] = useState('vibrant_ink');
+    // Fixed values: Darcula theme, Monospace font, 18px size
+    const [theme, setTheme] = useState('dracula');
     const { user, currRoom, socket } = useContext(DataContext);
     let roomid = currRoom ? currRoom.roomid : "";
     let name = user ? user.name : "";
@@ -66,7 +67,7 @@ for (let i = 1; i <= 10; i++) {
 
 // Add your own code below this line
 console.log("Hello JavaScript Language");`);
-    const [language, setLanguage] = useState(currRoom ? currRoom.language : "cpp17");
+    const [language, setLanguage] = useState(currRoom ? currRoom.language : "javascript");
     const [running, setRunning] = useState(false);
 
 
@@ -81,7 +82,7 @@ console.log("Hello JavaScript Language");`);
 
     const run = async () => {
         setRunning(true);
-        const id = toast.loading("Compiling...")
+        // const id = toast.loading("Compiling...")
         await axios({
             method: 'post',
             url: config.BACKEND_URL + "/code/execute",
@@ -97,7 +98,7 @@ console.log("Hello JavaScript Language");`);
             
         })
             .then((res) => {
-                toast.update(id, { render: "Compiled successfully", type: "success", isLoading: false, autoClose: 1000 });
+                // toast.update(id, { render: "Compiled successfully", type: "success", isLoading: false, autoClose: 1000 });
                 setRunning(false);
                 let result = res.data.output ? res.data.output : res.data.error;
                 setOutput(result)
@@ -105,7 +106,7 @@ console.log("Hello JavaScript Language");`);
             })
             .catch((err) => {
                 console.log(err)
-                toast.update(id, { render: "Compilation failed", type: "error", isLoading: false, autoClose: 1500 });
+                // toast.update(id, { render: "Compilation failed", type: "error", isLoading: false, autoClose: 1500 });
                 setRunning(false);
                 console.error("error from axios", err.response.data);
             });
@@ -160,9 +161,9 @@ console.log("Hello JavaScript Language");`);
         }
 
         socket.on('join', ({ msg, room, socketId }) => {
-            toast(msg, {
-                position: toast.POSITION.TOP_RIGHT
-            });
+            // toast(msg, {
+            //     position: toast.POSITION.TOP_RIGHT
+            // });
             setCode(room.code);
             setLanguage(room.language);
             setInput(room.input);
@@ -249,22 +250,6 @@ console.log("Hello JavaScript Language");`);
 
     return (
         <div id="editor">
-            <Settings
-                setLanguage={setLanguage}
-                setTheme={setTheme}
-                setFontSize={setFontSize}
-                setFontFamily={setFontFamily}
-                language={language}
-                theme={theme}
-                fontSize={fontSize}
-                fontFamily={fontFamily}
-                roomName={roomName}
-                sendCode={sendCode}
-                run={run}
-                handleLangChange={handleLangChange}
-                roomid={roomid}
-                running={running}
-            />
             <div id='workspace' >
                 <AceEditor
                     setOptions={{
@@ -294,7 +279,7 @@ console.log("Hello JavaScript Language");`);
                     name="ACE_EDITOR"
                     value={code}
                     fontSize={fontSize}
-                    height='400px'
+                    height='100%'
                     width='100%'
                     setAutoScrollEditorIntoView
                     defaultValue=''
@@ -360,6 +345,14 @@ console.log("Hello JavaScript Language");`);
                     </div>
                 </div>
             </div>
+
+            {/* Language selector and run button below code area */}
+            <Settings
+                language={language}
+                handleLangChange={handleLangChange}
+                run={run}
+                running={running}
+            />
         </div >
     )
 };
