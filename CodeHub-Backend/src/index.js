@@ -37,22 +37,54 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With']
+    allowedHeaders: [
+        'Origin', 
+        'X-Requested-With', 
+        'Content-Type', 
+        'Accept', 
+        'Authorization',
+        'Content-Length',
+        'access-control-allow-origin',
+        'Access-Control-Allow-Origin',
+        'Access-Control-Allow-Headers',
+        'Access-Control-Allow-Methods',
+        'Access-Control-Allow-Credentials'
+    ]
 }));
 
 // Handle preflight requests
 app.options('*', cors());
 
+// Comprehensive preflight handler
+app.use((req, res, next) => {
+    if (req.method === 'OPTIONS') {
+        res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Content-Length, access-control-allow-origin, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Access-Control-Allow-Methods, Access-Control-Allow-Credentials');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Max-Age', '86400'); // 24 hours
+        res.status(200).end();
+        return;
+    }
+    next();
+});
+
 // Additional CORS headers middleware
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Content-Length, access-control-allow-origin, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Access-Control-Allow-Methods, Access-Control-Allow-Credentials');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     next();
 });
 
 // Logging middleware for debugging
 app.use((req, res, next) => {
     console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin || 'No origin'}`);
+    console.log('Headers:', req.headers);
+    if (req.method === 'OPTIONS') {
+        console.log('Preflight request detected');
+    }
     next();
 });
 
@@ -80,6 +112,19 @@ const io = new Server(httpServer, {
             }
         },
         methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allowedHeaders: [
+            'Origin', 
+            'X-Requested-With', 
+            'Content-Type', 
+            'Accept', 
+            'Authorization',
+            'Content-Length',
+            'access-control-allow-origin',
+            'Access-Control-Allow-Origin',
+            'Access-Control-Allow-Headers',
+            'Access-Control-Allow-Methods',
+            'Access-Control-Allow-Credentials'
+        ],
         credentials: true
     },
     transports: ['websocket', 'polling'],
