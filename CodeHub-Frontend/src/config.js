@@ -7,7 +7,7 @@ const config = {
     SOCKET_URL: process.env.REACT_APP_SOCKET_URL || 'https://codehub-backend-s15s.onrender.com',
     
     // Google OAuth Client ID
-    GOOGLE_CLIENT_ID: "204761840995-36omp54cntsqs8r5aqud0mu99gqfl1pk.apps.googleusercontent.com"
+    GOOGLE_CLIENT_ID: "process.env.REACT_APP_GOOGLE_CLIENT_ID"
 };
 
 export default config;

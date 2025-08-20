@@ -21,12 +21,7 @@ function App() {
   return (
     <DataContextProvider>
       <div className="App">
-        {/* <div id="change-theme">
-          <button id="change-theme-button">
-            <i className="fas fa-moon"></i>
-            <i className="fas fa-sun"></i>
-          </button>
-        </div> */}
+      
         <Router>
           <Routes>
             <Route path="/" element={<Login />} />
