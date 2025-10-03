@@ -33,14 +33,8 @@ const roomSchema = new Schema({
     timestamps: true
 });
 
-// roomSchema.methods.toJSON = function () {
-//     let obj = this.toObject();
-//     delete obj.owner;
-//     delete obj.updatedAt;
-//     delete obj.__v;
-//     return obj;
-// }
+
 
 const room = mongoose.model('room', roomSchema);
 
-module.exports = room;
+export{ room};

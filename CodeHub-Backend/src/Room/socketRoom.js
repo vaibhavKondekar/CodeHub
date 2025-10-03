@@ -121,7 +121,7 @@ function listAllRooms() {
     console.log('================');
 }
 
-module.exports = {
+export{
     createRoom,
     addRoomUser,
     removeRoomUser,
